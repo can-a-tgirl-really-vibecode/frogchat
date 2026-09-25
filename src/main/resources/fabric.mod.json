@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "${id}",
+  "version": "${version}",
+  "name": "${name}",
+  "description": "Per-sender name colours, a persistent chat box with player heads, and a timestamp on hover.",
+  "authors": [
+    "Spoop"
+  ],
+  "license": "AGPL-3.0-or-later",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.frogchat.FrogChat"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "frogchat.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25"
+  }
+}

@@ -1,0 +1,59 @@
+plugins {
+    // 26.3-era Loom is published under its fully-qualified plugin id; the short 'fabric-loom' alias
+    // is not resolved for 1.17.
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+
+    // No `mappings` line, and no officialMojangMappings(). From 26.x Mojang ships the client
+    // unobfuscated, so there is nothing to map: mixin targets are written as the real names and go
+    // into the jar exactly as written. On 1.21.11 this project needed both, and a refmap behind them.
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Deliberately no Fabric API. Everything here is Mixin plus one loader entrypoint, so the jar
+    // drops into any 26.3 Fabric install on its own — nothing to install alongside it.
+}
+
+processResources {
+    inputs.property "id", project.mod_id
+    inputs.property "name", project.mod_name
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "id": project.mod_id,
+                "name": project.mod_name,
+                "version": project.version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.loader_version
+    }
+}
+
+// 25, not 21: Minecraft 26.3 is built for Java 25 and its own mods declare `java: >=25`.
+def targetJavaVersion = 25
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release = targetJavaVersion
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+    withSourcesJar()
+}

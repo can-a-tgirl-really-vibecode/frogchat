@@ -1,0 +1,14 @@
+# Gradle
+.gradle/
+build/
+
+# Dev client working directory
+run/
+
+# Prebuilt jars kept locally, not part of the source
+archive-1.21.11/
+
+# IDEs
+.idea/
+*.iml
+.vscode/

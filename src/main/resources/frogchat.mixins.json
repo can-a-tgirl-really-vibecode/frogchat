@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.frogchat.hook",
+  "compatibilityLevel": "JAVA_25",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "ChatInternals",
+    "ChatDecorateHook",
+    "HudChatLineHook",
+    "OpenChatLineHook"
+  ]
+}
