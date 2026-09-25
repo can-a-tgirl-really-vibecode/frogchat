@@ -35,11 +35,7 @@ public final class NameTint {
 
     private NameTint() {}
 
-    public static int of(String name) {
-        return of(name, FrogChat.config());
-    }
-
-    /** As {@link #of(String)}, under the given settings — the config screen passes a live view. */
+    /** The colour for {@code name}, under the given settings — the preview passes a live view. */
     static int of(String name, ChatConfig config) {
         Integer chosen = config.overrideFor(name);
         if (chosen != null) return chosen;
