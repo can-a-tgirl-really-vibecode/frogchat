@@ -14,14 +14,44 @@ import java.util.Map;
 /**
  * The mod's settings, as a hand-editable {@code config/frogchat.json}.
  *
- * <p>A file rather than a settings screen on purpose: this is three toggles and a colour list, and a
- * screen for that would be most of the mod. The file is written back on load with any keys a newer
- * version added, so an old config picks up new defaults instead of silently missing them.
+ * <p>The file is the source of truth; the Cloth Config screen writes back here on Done. The file is
+ * written back on load with any keys a newer version added, so an old config picks up new defaults
+ * instead of silently missing them.
  */
 public final class ChatConfig {
 
-    /** Give each sender their own colour, and restyle {@code <name> body} as {@code name: body}. */
+    /** Give each sender their own colour. Vanilla's {@code <name> body} stays as it is. */
     public boolean nameColours = true;
+
+    /**
+     * Restyle player chat as {@code name: body}, with the punctuation and message hushed. Off keeps
+     * vanilla's {@code <name> body}. Independent of {@link #nameColours} — the two combine, but
+     * neither needs the other.
+     */
+    public boolean restyleNames = false;
+
+    /** Where automatic name colours come from. */
+    public NameColourSource nameColourSource = NameColourSource.HASH;
+
+    /** Where automatic name colours come from. */
+    public enum NameColourSource {
+        /** Hashed from the name — the pastel every client agrees on. */
+        HASH,
+        /**
+         * Copied from the locator bar, so a name matches its dot. Players with no dot — too far
+         * away, or locator bar off — get the colour their dot would have, and anybody not on the
+         * server at all keeps the hashed colour.
+         */
+        LOCATOR
+    }
+
+    /**
+     * Pin every automatic name colour to the pastel — saturation and value fixed, only the hue
+     * varies — so no name can end up unreadable, whatever the source. Off means full-strength
+     * colours: vivid hashes in {@link NameColourSource#HASH HASH} mode, the dot exactly as the bar
+     * shows it in {@link NameColourSource#LOCATOR LOCATOR} mode.
+     */
+    public boolean pastelColours = true;
 
     /** The sender's face beside their line. */
     public boolean heads = true;
@@ -84,6 +114,7 @@ public final class ChatConfig {
         }
 
         if (loaded.colourOverrides == null) loaded.colourOverrides = new LinkedHashMap<>();
+        if (loaded.nameColourSource == null) loaded.nameColourSource = NameColourSource.HASH;
         loaded.warnAboutBadColours();
         loaded.save();
         return loaded;
@@ -104,7 +135,8 @@ public final class ChatConfig {
         }
     }
 
-    private void save() {
+    /** Writes the current values back to {@code config/frogchat.json}. Public for the config screen. */
+    public void save() {
         try {
             Path path = file();
             Files.createDirectories(path.getParent());

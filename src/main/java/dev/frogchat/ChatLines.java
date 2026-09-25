@@ -9,6 +9,7 @@ import net.minecraft.client.gui.components.PlayerFaceExtractor;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
 
 import org.joml.Vector2f;
@@ -40,17 +41,72 @@ public final class ChatLines {
     /**
      * A sender at the head of a line, after the gap a head reserved.
      *
-     * <p>Both shapes on purpose: {@code name:} is what the colouring rewrites lines into, and
-     * {@code <name>} is what they still look like when colouring is switched off, so a head follows the
-     * sender either way.
+     * <p>Both shapes on purpose: {@code name:} is what the restyle option rewrites lines into, and
+     * {@code <name>} is what they look like without it, so a head follows the sender either way.
      */
     private static final Pattern SENDER = Pattern.compile("^ *<?([A-Za-z0-9_]{1,16})[:>]");
 
+    /** Vanilla's own {@code <name> body}, which is what tells us a line came from a player. */
+    private static final Pattern FROM_PLAYER =
+            Pattern.compile("^<([A-Za-z0-9_]{1,16})>\\s(.*)$", Pattern.DOTALL);
+
+    /** The restyle's punctuation between name and message, and message itself: quiet, so the name carries. */
+    private static final int PUNCTUATION = 0x8A8A92;
+    private static final int BODY = 0xE1E5EC;
+
     /** Face size, and the height of a glyph — the hover band is sized from the latter. */
-    private static final int FACE = 8;
+    static final int FACE = 8;
     private static final int GLYPH = 9;
 
     private ChatLines() {}
+
+    /**
+     * Tints one incoming line as it will live in the chat log: the sender's name in their colour, and
+     * the face's width reserved in leading spaces. With {@code restyleNames} the line is also rewritten
+     * {@code <name> body} → {@code name: body}; without it the rest stays exactly as vanilla wrote it.
+     * Anything not from a player passes through untouched.
+     *
+     * <p>Shared between the arrival hook and the config screen's live preview, so what the preview
+     * shows is what the mod does.
+     */
+    public static Component decorate(Component message) {
+        return decorate(message, FrogChat.config());
+    }
+
+    /** As {@link #decorate(Component)}, under the given settings — the config screen passes a live view. */
+    static Component decorate(Component message, ChatConfig cfg) {
+        Matcher fromPlayer = FROM_PLAYER.matcher(message.getString());
+        if (!fromPlayer.matches()) return message;
+
+        Component line = message;
+        if (cfg.restyleNames) {
+            MutableComponent name = Component.literal(fromPlayer.group(1));
+            if (cfg.nameColours) name.withStyle(s -> s.withColor(NameTint.of(name.getString(), cfg)));
+            line = Component.empty()
+                    .append(name)
+                    .append(Component.literal(": ").withStyle(s -> s.withColor(PUNCTUATION)))
+                    .append(Component.literal(fromPlayer.group(2)).withStyle(s -> s.withColor(BODY)));
+        } else if (cfg.nameColours) {
+            String name = fromPlayer.group(1);
+            line = Component.literal("<")
+                    .append(Component.literal(name).withStyle(s -> s.withColor(NameTint.of(name, cfg))))
+                    .append(Component.literal("> " + fromPlayer.group(2)));
+        }
+
+        // Reserve the face's width in spaces here, not at render time: the head is painted over this
+        // gap, and a line that reserved nothing would have its own text underneath it. Reserved on
+        // arrival so it survives re-wrapping.
+        if (cfg.heads) {
+            line = Component.literal(gapFor(FACE)).append(line);
+        }
+        return line;
+    }
+
+    /** Enough spaces to clear {@code px} pixels at the chat font's space width, plus one for breathing. */
+    private static String gapFor(int px) {
+        int space = Math.max(1, Minecraft.getInstance().font.width(" "));
+        return " ".repeat(Math.max(1, (px + space - 1) / space) + 1);
+    }
 
     /**
      * @param localMouse the cursor in line-local space, or null when chat is closed and there is no

@@ -14,6 +14,14 @@ base {
 
 repositories {
     mavenCentral()
+    maven {
+        name = "Terraformers"
+        url = "https://maven.terraformersmc.com/"
+    }
+    maven {
+        name = "Shedaniel"
+        url = "https://maven.shedaniel.me/"
+    }
 }
 
 dependencies {
@@ -26,6 +34,17 @@ dependencies {
 
     // Deliberately no Fabric API. Everything here is Mixin plus one loader entrypoint, so the jar
     // drops into any 26.3 Fabric install on its own — nothing to install alongside it.
+
+    // Cloth Config is a soft dependency: the config screen is built with its ConfigBuilder, but
+    // FrogChatModMenu checks FabricLoader before touching it and falls back to a plain screen
+    // without it. Loom 1.17 dropped the modImplementation DSL — plain implementation puts the jar
+    // on the classpath, and on 26.x there is no remap step to miss. (Cloth's own docs say the same
+    // for 26.x.)
+    implementation "me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}"
+
+    // Mod Menu is a soft dependency: compile against its API so the Mods screen gets a config
+    // button, but the mod runs fine without it installed.
+    implementation "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {
