@@ -8,6 +8,8 @@
   },
   "client": [
     "ChatIntakeHook",
+    "EmojiSuggestionListHook",
+    "EmojiSuggestionsHook",
     "HudChatLineHook",
     "OpenChatLineHook"
   ]

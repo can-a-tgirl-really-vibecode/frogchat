@@ -65,7 +65,6 @@ public class ChatIntakeHook {
             at = @At("STORE"), ordinal = 0)
     private List<FormattedCharSequence> frogchat$tagLines(List<FormattedCharSequence> lines,
                                                           GuiMessage message) {
-        ChatMeta.register(message.content(), lines);
-        return lines;
+        return ChatMeta.tagLines(message.content(), lines);
     }
 }

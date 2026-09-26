@@ -59,6 +59,9 @@ public final class ChatConfig {
     /** Pointing at a line while chat is open shows when it arrived. */
     public boolean hoverTimestamps = true;
 
+    /** Render {@code :shortcode:} emojis inline, and offer them in tab completion. */
+    public boolean emoji = true;
+
     /**
      * Colours chosen by hand, beating the one derived from the name.
      *
@@ -107,9 +110,16 @@ public final class ChatConfig {
                 ChatConfig parsed = GSON.fromJson(Files.readString(path), ChatConfig.class);
                 if (parsed != null) loaded = parsed;
             } catch (IOException | RuntimeException e) {
-                // A broken config should not stop the mod loading; defaults are a fine fallback and the
-                // rewrite below repairs the file rather than leaving the player to hand-fix JSON.
+                // A broken config should not stop the mod loading, but one unparseable value (a typo'd
+                // enum, a stray quote) must not cost the player everything else in the file: the
+                // rewrite below would otherwise bury their settings under factory defaults. Keep the
+                // original alongside instead, so it can be hand-fixed at leisure.
                 FrogChat.LOG.warn("config unreadable, using defaults", e);
+                try {
+                    Files.move(path, path.resolveSibling(path.getFileName() + ".broken"));
+                } catch (IOException moveFailed) {
+                    FrogChat.LOG.warn("could not set the broken config aside; leaving it untouched", moveFailed);
+                }
             }
         }
 

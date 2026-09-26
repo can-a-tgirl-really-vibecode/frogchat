@@ -94,6 +94,13 @@ public final class FrogChatModMenu implements ModMenuApi {
                         "Pointing at a line while chat is open shows when it arrived"))
                 .setSaveConsumer(v -> config.hoverTimestamps = v)
                 .build();
+        BooleanListEntry emoji = entries.startBooleanToggle(
+                        Component.literal("Emojis"), config.emoji)
+                .setDefaultValue(true)
+                .setTooltip(Component.literal(
+                        "Render :shortcode: emojis inline, and complete them after typing a colon"))
+                .setSaveConsumer(v -> config.emoji = v)
+                .build();
 
         // The preview renders off a copy of the settings synced from the rows' current values, so
         // it shows what the screen says — not what was last saved.
@@ -108,6 +115,7 @@ public final class FrogChatModMenu implements ModMenuApi {
             view.restyleNames = restyle.getValue();
             view.heads = heads.getValue();
             view.hoverTimestamps = hover.getValue();
+            view.emoji = emoji.getValue();
         }));
         general.addEntry(nameColours);
         general.addEntry(source);
@@ -115,6 +123,7 @@ public final class FrogChatModMenu implements ModMenuApi {
         general.addEntry(restyle);
         general.addEntry(heads);
         general.addEntry(hover);
+        general.addEntry(emoji);
         general.addEntry(entries.startTextDescription(
                         Component.literal("Colour overrides live in config/frogchat.json"))
                 .build());

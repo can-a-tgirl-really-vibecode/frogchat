@@ -53,7 +53,10 @@ final class ChatPreviewEntry extends AbstractConfigListEntry<Void> {
         // The suggestion of a chat pane: dim background while open-chat widgets are not underneath.
         g.fill(x, y + 1, x + entryWidth, y + entryHeight - 1, 0x40000000);
 
-        Component line = ChatLines.decorate(Component.literal("<" + mc.getUser().getName() + "> " + SAMPLE), cfg);
+        Component name = Component.literal(mc.getUser().getName())
+                .withStyle(style -> style.withInsertion(mc.getUser().getName()));
+        Component line = ChatLines.decorate(
+                Component.translatable("chat.type.text", name, Component.literal(SAMPLE)), cfg);
         int textY = y + (entryHeight - 9) / 2;
 
         if (cfg.heads) drawFace(g, mc, x, textY);
@@ -79,8 +82,7 @@ final class ChatPreviewEntry extends AbstractConfigListEntry<Void> {
         PlayerSkin skin = mc.getConnection() != null && mc.getConnection().getPlayerInfo(mc.getUser().getProfileId()) != null
                 ? mc.getConnection().getPlayerInfo(mc.getUser().getProfileId()).getSkin()
                 : DefaultPlayerSkin.get(mc.getUser().getProfileId());
-        PlayerFaceExtractor.extractRenderState(g, skin.body().texturePath(), x, y, ChatLines.FACE,
-                true, false, 0xFFFFFFFF);
+        PlayerFaceExtractor.extractRenderState(g, skin, x, y, ChatLines.FACE);
     }
 
     @Override

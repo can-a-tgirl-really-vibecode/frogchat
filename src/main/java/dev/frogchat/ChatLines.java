@@ -18,8 +18,6 @@ import org.joml.Vector2f;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * What happens to chat lines, in two places.
@@ -35,19 +33,11 @@ import java.util.regex.Pattern;
  * <p><b>Render</b> ({@link #onLine}) runs inside vanilla's per-line draw call, with the consequences
  * that make that worth doing: the fade, the position and the mouse all arrive as vanilla worked them
  * out, so the face dims in step with its line and the hover test is a comparison, not a coordinate
- * conversion. Everything it needs beyond those arguments comes from {@link ChatMeta}, looked up by
- * the line's identity — no log scan, no regex, and nothing drawn for the queued-notice or
+ * conversion. Everything it needs beyond those arguments comes from {@link ChatMeta}, carried by
+ * the wrapped line — no log scan, no regex, and nothing drawn for the queued-notice or
  * restricted-chat lines that pass through the same call with no log entry behind them.
  */
 public final class ChatLines {
-
-    /**
-     * Vanilla's own {@code <name> body}, the shape player chat takes when it arrives as plain text
-     * rather than as a {@code chat.type.*} translatable — plugin-relayed messages, and the config
-     * screen's preview line.
-     */
-    private static final Pattern FROM_PLAYER =
-            Pattern.compile("^<([A-Za-z0-9_]{1,16})>\\s(.*)$", Pattern.DOTALL);
 
     /** The restyle's punctuation between name and message, and message itself: quiet, so the name carries. */
     private static final int PUNCTUATION = 0x8A8A92;
@@ -63,15 +53,12 @@ public final class ChatLines {
 
     /**
      * One message on its way into the log: restyle/tint it if it came from a player, remember when
-     * it arrived either way, and hand back the component the {@code GuiMessage} will be built from
-     * — the meta is keyed by that very instance, which is what lets the render side find it again.
-     * Called from the intake hook, nothing else.
+     * it arrived either way, and hand back the tagged component the {@code GuiMessage} will hold.
      */
     public static Component deliver(Component message, GuiMessageSource source) {
         String sender = source == GuiMessageSource.PLAYER ? senderOf(message) : null;
         Component decorated = decorate(message, sender, FrogChat.config());
-        ChatMeta.record(decorated, new ChatMeta.LineMeta(sender, System.currentTimeMillis()));
-        return decorated;
+        return ChatMeta.tag(decorated, new ChatMeta.LineMeta(sender, System.currentTimeMillis()));
     }
 
     /**
@@ -89,6 +76,7 @@ public final class ChatLines {
 
     /** As {@link #decorate(Component, ChatConfig)}, with the sender already resolved by the caller. */
     private static Component decorate(Component message, @Nullable String sender, ChatConfig cfg) {
+        if (cfg.emoji) message = Emojis.replace(message);
         if (sender == null) return message;
 
         Component line = restyle(message, sender, cfg);
@@ -110,93 +98,52 @@ public final class ChatLines {
     /**
      * The sender's account name, or null if this is not player chat.
      *
-     * <p>Reads the name out of the component's own structure where there is one. Servers can put a
-     * team's prefix and suffix around the name, so the display string is resolved back to an online
-     * account name (longest match wins, to prefer "Steven2" over "Steve") — the tint then hashes the
-     * account name and stays stable regardless of team. While connected, a "sender" nobody online has
-     * is no sender at all: vanilla's own chat-validation-error notice ships as a {@code chat.type.*}
-     * line too, with boilerplate text where the name would be, and resolving to nobody is what keeps
-     * it untouched.
+     * <p>Vanilla chat is a translatable whose component arguments are selected by
+     * {@code ChatTypeDecoration}. Player display names carry the canonical account name in their
+     * insertion style, including team-decorated names.
      */
     private static @Nullable String senderOf(Component message) {
-        if (message.getContents() instanceof TranslatableContents t && t.getArgs().length >= 2
-                && t.getArgs()[0] instanceof Component name) {
-            return accountName(name.getString());
+        if (message.getContents() instanceof TranslatableContents t) {
+            for (Object arg : t.getArgs()) {
+                if (arg instanceof Component component && component.getStyle().getInsertion() != null) {
+                    return component.getStyle().getInsertion();
+                }
+            }
         }
-        Matcher fromPlayer = FROM_PLAYER.matcher(message.getString());
-        return fromPlayer.matches() ? fromPlayer.group(1) : null;
-    }
-
-    /**
-     * The online account name inside a possibly team-decorated display string, or null when nobody
-     * online matches. Only while a server knows its players do we demand one: off any server — the
-     * config screen's preview — the string is trusted as-is.
-     */
-    private static @Nullable String accountName(String decorated) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getConnection() == null) return decorated;
-
-        String best = null;
-        for (PlayerInfo player : mc.getConnection().getOnlinePlayers()) {
-            String name = player.getProfile().name();
-            if (name.equals(decorated)) return name;
-            if (decorated.contains(name) && (best == null || name.length() > best.length())) best = name;
-        }
-        return best;
+        return null;
     }
 
     /**
      * The line with its sender tinted and, optionally, restyled.
      *
-     * <p>Structured first: for a {@code chat.type.*} translatable the sender node is tinted and the
-     * rest "repackaged" — same translation key, same body, click and hover events intact. The
-     * string-rebuild fallback is for player chat that arrives as plain <code>&lt;name&gt; body</code>
-     * text, where there is no structure to preserve.
+     * <p>The sender argument is identified by the same insertion metadata used above. Minecraft's
+     * built-in chat decorations always put content last, while team chat may place a target before
+     * the sender.
      */
     private static Component restyle(Component message, String sender, ChatConfig cfg) {
-        if (message.getContents() instanceof TranslatableContents t && t.getArgs().length >= 2
-                && t.getArgs()[0] instanceof Component name && t.getArgs()[1] instanceof Component body) {
-            if (cfg.restyleNames) {
-                return Component.empty()
-                        .append(tinted(name, sender, cfg))
-                        .append(Component.literal(": ").withStyle(s -> s.withColor(PUNCTUATION)))
-                        // A wrapper hushes the body to grey while leaving any styles inside it —
-                        // vanilla's link colouring, say — to win where they set their own.
-                        .append(Component.empty().withStyle(s -> s.withColor(BODY)).append(body));
-            }
-            if (cfg.nameColours) {
-                Object[] args = t.getArgs().clone();
-                args[0] = tinted(name, sender, cfg);
-                return Component.translatable(t.getKey(), args);
-            }
-            return message;
-        }
+        if (!(message.getContents() instanceof TranslatableContents t)) return message;
 
-        Matcher fromPlayer = FROM_PLAYER.matcher(message.getString());
-        if (!fromPlayer.matches()) return message;
+        Object[] args = t.getArgs().clone();
+        for (int i = 0; i < args.length; i++) {
+            if (!(args[i] instanceof Component name)
+                    || !sender.equals(name.getStyle().getInsertion())) continue;
 
-        if (cfg.restyleNames) {
-            MutableComponent name = Component.literal(fromPlayer.group(1));
-            if (cfg.nameColours) name.withStyle(s -> s.withColor(NameTint.of(name.getString(), cfg)));
-            return Component.empty()
-                    .append(name)
-                    .append(Component.literal(": ").withStyle(s -> s.withColor(PUNCTUATION)))
-                    .append(Component.literal(fromPlayer.group(2)).withStyle(s -> s.withColor(BODY)));
-        }
-        if (cfg.nameColours) {
-            String name = fromPlayer.group(1);
-            return Component.literal("<")
-                    .append(Component.literal(name).withStyle(s -> s.withColor(NameTint.of(name, cfg))))
-                    .append(Component.literal("> " + fromPlayer.group(2)));
+            MutableComponent tinted = name.copy();
+            if (cfg.nameColours) tinted.withColor(NameTint.of(sender, cfg));
+
+            if (cfg.restyleNames && args[args.length - 1] instanceof Component body && body != name) {
+                return Component.empty().setStyle(message.getStyle())
+                        .append(tinted)
+                        .append(Component.literal(": ").withColor(PUNCTUATION))
+                        .append(Component.empty().withColor(BODY).append(body));
+            }
+            if (!cfg.nameColours) return message;
+
+            args[i] = tinted;
+            return Component.translatableWithFallback(t.getKey(), t.getFallback(), args)
+                    .setStyle(message.getStyle());
         }
         return message;
-    }
-
-    /** The given name node with the sender's colour, keeping whatever else it already said. */
-    private static MutableComponent tinted(Component name, String sender, ChatConfig cfg) {
-        MutableComponent tinted = name.copy();
-        if (cfg.nameColours) tinted.withStyle(s -> s.withColor(NameTint.of(sender, cfg)));
-        return tinted;
     }
 
     // ---------------------------------------------------------------- render
@@ -259,7 +206,7 @@ public final class ChatLines {
         PlayerInfo player = mc.getConnection().getPlayerInfo(sender);
         if (player == null) return;
 
-        PlayerFaceExtractor.extractRenderState(g, player.getSkin().body().texturePath(), 0, y, FACE,
-                true, false, (a << 24) | 0xFFFFFF);
+        PlayerFaceExtractor.extractRenderState(g, player.getSkin(), 0, y, FACE,
+                (a << 24) | 0xFFFFFF);
     }
 }
