@@ -28,7 +28,7 @@ public final class ChatConfig {
      * vanilla's {@code <name> body}. Independent of {@link #nameColours} — the two combine, but
      * neither needs the other.
      */
-    public boolean restyleNames = false;
+    public boolean restyleNames = true;
 
     /** Where automatic name colours come from. */
     public NameColourSource nameColourSource = NameColourSource.HASH;
