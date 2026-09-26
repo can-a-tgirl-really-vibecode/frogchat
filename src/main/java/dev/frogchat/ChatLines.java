@@ -165,7 +165,12 @@ public final class ChatLines {
         ChatMeta.LineMeta meta = ChatMeta.metaFor(content);
         if (meta == null) return;
 
-        if (cfg.heads && meta.sender() != null) drawFace(g, meta.sender(), y, alpha);
+        // First line only. Every line of a wrapped message carries the same sender, but the name is
+        // only written on the one the message starts on — and only that line reserves the gap the
+        // face sits in, so drawing on the others put a head through the middle of the text.
+        if (cfg.heads && meta.sender() != null && ChatMeta.isFirstLine(content)) {
+            drawFace(g, meta.sender(), y, alpha);
+        }
 
         boolean hoverTaken = hoveredStyle != null && hoveredStyle.getHoverEvent() != null;
         if (cfg.hoverTimestamps && localMouse != null && !hoverTaken && hovering(localMouse, y)) {
