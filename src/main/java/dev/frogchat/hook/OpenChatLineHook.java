@@ -4,9 +4,11 @@ import dev.frogchat.ChatLines;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 
 import org.joml.Vector2f;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -25,6 +27,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *
  * <p>{@code globalMouseX/Y} are the screen coordinates the tooltip is positioned at — a tooltip is drawn
  * later, outside this pose, so it wants the untransformed cursor.
+ *
+ * <p>The injection sits at TAIL, not HEAD, for {@code hoveredStyle}: vanilla fills it while walking the
+ * line's spans, and the timestamp must yield when the span under the cursor carries a hover event —
+ * vanilla defers that tooltip to end of frame and only takes it if nothing claimed the slot first, so a
+ * timestamp set early would quietly swallow advancement and entity-tooltips on the same line.
  */
 @Mixin(targets = "net.minecraft.client.gui.components.ChatComponent$DrawingFocusedGraphicsAccess")
 public class OpenChatLineHook {
@@ -34,10 +41,12 @@ public class OpenChatLineHook {
     @Shadow @Final private Vector2f localMousePos;
     @Shadow @Final private int globalMouseX;
     @Shadow @Final private int globalMouseY;
+    @Shadow private @Nullable Style hoveredStyle;
 
-    @Inject(method = "handleMessage(IFLnet/minecraft/util/FormattedCharSequence;)Z", at = @At("HEAD"))
+    @Inject(method = "handleMessage(IFLnet/minecraft/util/FormattedCharSequence;)Z", at = @At("TAIL"))
     private void frogchat$decorateLine(int y, float alpha, FormattedCharSequence content,
-                                       CallbackInfoReturnable<Boolean> cir) {
-        ChatLines.onLine(graphics, font, y, alpha, content, localMousePos, globalMouseX, globalMouseY);
+                                        CallbackInfoReturnable<Boolean> cir) {
+        ChatLines.onLine(graphics, font, y, alpha, content, localMousePos, globalMouseX, globalMouseY,
+                hoveredStyle);
     }
 }

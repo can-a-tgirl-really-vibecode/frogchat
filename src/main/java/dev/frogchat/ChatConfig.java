@@ -14,20 +14,53 @@ import java.util.Map;
 /**
  * The mod's settings, as a hand-editable {@code config/frogchat.json}.
  *
- * <p>A file rather than a settings screen on purpose: this is three toggles and a colour list, and a
- * screen for that would be most of the mod. The file is written back on load with any keys a newer
- * version added, so an old config picks up new defaults instead of silently missing them.
+ * <p>The file is the source of truth; the Cloth Config screen writes back here on Done. The file is
+ * written back on load with any keys a newer version added, so an old config picks up new defaults
+ * instead of silently missing them.
  */
 public final class ChatConfig {
 
-    /** Give each sender their own colour, and restyle {@code <name> body} as {@code name: body}. */
+    /** Give each sender their own colour. Vanilla's {@code <name> body} stays as it is. */
     public boolean nameColours = true;
+
+    /**
+     * Restyle player chat as {@code name: body}, with the punctuation and message hushed. Off keeps
+     * vanilla's {@code <name> body}. Independent of {@link #nameColours} — the two combine, but
+     * neither needs the other.
+     */
+    public boolean restyleNames = true;
+
+    /** Where automatic name colours come from. */
+    public NameColourSource nameColourSource = NameColourSource.HASH;
+
+    /** Where automatic name colours come from. */
+    public enum NameColourSource {
+        /** Hashed from the name — the pastel every client agrees on. */
+        HASH,
+        /**
+         * Copied from the locator bar, so a name matches its dot. Players with no dot — too far
+         * away, or locator bar off — get the colour their dot would have, and anybody not on the
+         * server at all keeps the hashed colour.
+         */
+        LOCATOR
+    }
+
+    /**
+     * Pin every automatic name colour to the pastel — saturation and value fixed, only the hue
+     * varies — so no name can end up unreadable, whatever the source. Off means full-strength
+     * colours: vivid hashes in {@link NameColourSource#HASH HASH} mode, the dot exactly as the bar
+     * shows it in {@link NameColourSource#LOCATOR LOCATOR} mode.
+     */
+    public boolean pastelColours = true;
 
     /** The sender's face beside their line. */
     public boolean heads = true;
 
     /** Pointing at a line while chat is open shows when it arrived. */
     public boolean hoverTimestamps = true;
+
+    /** Render {@code :shortcode:} emojis inline, and offer them in tab completion. */
+    public boolean emoji = true;
 
     /**
      * Colours chosen by hand, beating the one derived from the name.
@@ -77,13 +110,21 @@ public final class ChatConfig {
                 ChatConfig parsed = GSON.fromJson(Files.readString(path), ChatConfig.class);
                 if (parsed != null) loaded = parsed;
             } catch (IOException | RuntimeException e) {
-                // A broken config should not stop the mod loading; defaults are a fine fallback and the
-                // rewrite below repairs the file rather than leaving the player to hand-fix JSON.
+                // A broken config should not stop the mod loading, but one unparseable value (a typo'd
+                // enum, a stray quote) must not cost the player everything else in the file: the
+                // rewrite below would otherwise bury their settings under factory defaults. Keep the
+                // original alongside instead, so it can be hand-fixed at leisure.
                 FrogChat.LOG.warn("config unreadable, using defaults", e);
+                try {
+                    Files.move(path, path.resolveSibling(path.getFileName() + ".broken"));
+                } catch (IOException moveFailed) {
+                    FrogChat.LOG.warn("could not set the broken config aside; leaving it untouched", moveFailed);
+                }
             }
         }
 
         if (loaded.colourOverrides == null) loaded.colourOverrides = new LinkedHashMap<>();
+        if (loaded.nameColourSource == null) loaded.nameColourSource = NameColourSource.HASH;
         loaded.warnAboutBadColours();
         loaded.save();
         return loaded;
@@ -104,7 +145,8 @@ public final class ChatConfig {
         }
     }
 
-    private void save() {
+    /** Writes the current values back to {@code config/frogchat.json}. Public for the config screen. */
+    public void save() {
         try {
             Path path = file();
             Files.createDirectories(path.getParent());

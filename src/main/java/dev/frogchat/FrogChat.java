@@ -25,7 +25,8 @@ public final class FrogChat implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         config = ChatConfig.load();
-        LOG.info("FrogChat ready — colours={} heads={} hover={} overrides={}",
-                config.nameColours, config.heads, config.hoverTimestamps, config.usableOverrides());
+        LOG.info("FrogChat ready — colours={} source={} pastel={} restyle={} heads={} hover={} overrides={}",
+                config.nameColours, config.nameColourSource, config.pastelColours, config.restyleNames,
+                config.heads, config.hoverTimestamps, config.usableOverrides());
     }
 }

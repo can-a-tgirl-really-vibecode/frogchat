@@ -7,8 +7,9 @@
     "defaultRequire": 1
   },
   "client": [
-    "ChatInternals",
-    "ChatDecorateHook",
+    "ChatIntakeHook",
+    "EmojiSuggestionListHook",
+    "EmojiSuggestionsHook",
     "HudChatLineHook",
     "OpenChatLineHook"
   ]

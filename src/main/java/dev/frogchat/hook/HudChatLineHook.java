@@ -34,6 +34,6 @@ public class HudChatLineHook {
     @Inject(method = "handleMessage(IFLnet/minecraft/util/FormattedCharSequence;)Z", at = @At("HEAD"))
     private void frogchat$decorateLine(int y, float alpha, FormattedCharSequence content,
                                        CallbackInfoReturnable<Boolean> cir) {
-        ChatLines.onLine(graphics, Minecraft.getInstance().font, y, alpha, content, null, 0, 0);
+        ChatLines.onLine(graphics, Minecraft.getInstance().font, y, alpha, content, null, 0, 0, null);
     }
 }
