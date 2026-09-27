@@ -79,12 +79,14 @@ public abstract class EmojiSuggestionsHook {
     // ModifyArg at the constructor call, not ModifyVariable on maxSuggestionWidth's first store:
     // the Math.max re-store inside the loop is a separate instruction and would overwrite the
     // widening, leaving the sprite EmojiSuggestionListHook paints poking past the box's edge.
+    // Index 3 because SuggestionsList is an inner class: the constructor's real args are
+    // (CommandSuggestions this$0, int x, int y, int width, List, boolean) — width is 3, not 2.
     @ModifyArg(method = "showSuggestions(Z)V",
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/client/gui/components/CommandSuggestions$SuggestionsList;"
                             + "<init>(Lnet/minecraft/client/gui/components/CommandSuggestions;III"
                             + "Ljava/util/List;Z)V"),
-            index = 2)
+            index = 3)
     private int frogchat$widenForEmojis(int maxSuggestionWidth) {
         Suggestions suggestions = this.pendingSuggestions == null ? null : this.pendingSuggestions.getNow(null);
         if (suggestions != null && suggestions.getList().stream()
